@@ -1,0 +1,36 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    padding: 10px;
+    background-color: gray;
+}
+
+canvas {
+    width: 800px;
+    height: 500px;
+    background-color: white;
+
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: fit-content(50%) auto;
+    background-color: darkgray;
+}
+
+.grid h2 {
+    padding: 5px;
+    justify-self: center;
+}
+
+.grid div {
+    padding: 5px;
+}
+
+.properties {
+    width: 100%;
+}

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Finite Automata</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div class="grid">
+            <h2>Editor</h2>
+            <h2>Properties</h2>
+            <div>
+                <canvas id="canvas"></canvas>
+            </div>
+            <div>
+                <div id="node" hidden="true">
+                    Name: <input type="text" id="node-name" oninput="onNodeNameChanged()"><br>
+                    Accept: <input type="checkbox" id="node-accept" oninput="onNodeAcceptChanged()"><br>
+                    <input type="button" id="node-start" value="Set as Start" onclick="onNodeStartClicked()">
+                </div>
+                <div id="link" hidden="true">
+                    Text: <input type="text" id="link-text" oninput="onLinkTextChanged()">
+                </div>
+            </div>
+        </div>
+    </body>
+    <script src="script.js"></script>
+</html>

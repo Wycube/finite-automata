@@ -1,0 +1,1 @@
+C:\Users\sburt\dev\rust\finite-automata\automata\target\wasm32-unknown-unknown\release\automata.wasm: C:\Users\sburt\dev\rust\finite-automata\automata\src\graph.rs C:\Users\sburt\dev\rust\finite-automata\automata\src\lib.rs
