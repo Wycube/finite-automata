@@ -22,9 +22,7 @@ jobs:
       run: wasm-pack build --target web
       working-directory: ./automata
     - name: Copy to web folder
-      run: |
-        mkdir web/pkg
-        cp -R automata/pkg web/pkg
+      run: cp -R automata/pkg web/pkg
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v7.0.0
       with:
