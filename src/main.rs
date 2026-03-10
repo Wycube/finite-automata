@@ -1,5 +1,3 @@
-use automata;
-
 fn main() {
     let odd_1s = automata::graph::Graph {
         states: vec![(String::from("q1"), false), (String::from("q2"), true)],

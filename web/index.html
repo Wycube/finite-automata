@@ -13,15 +13,17 @@
             </div>
             <div>
                 <div id="node" hidden="true">
-                    Name: <input type="text" id="node-name" oninput="onNodeNameChanged()"><br>
-                    Accept: <input type="checkbox" id="node-accept" oninput="onNodeAcceptChanged()"><br>
-                    <input type="button" id="node-start" value="Set as Start" onclick="onNodeStartClicked()">
+                    Name: <input type="text" id="node-name"><br>
+                    Accept: <input type="checkbox" id="node-accept"><br>
+                    <input type="button" id="node-start" value="Set as Start">
                 </div>
                 <div id="link" hidden="true">
-                    Text: <input type="text" id="link-text" oninput="onLinkTextChanged()">
+                    Text: <input type="text" id="link-text">
+                    Epsilon: <input type="checkbox" id="link-epsilon"><br>
                 </div>
             </div>
         </div>
+        <input type="button" id="print-button" value="Print Graph">
     </body>
-    <script src="script.js"></script>
+    <script src="script.js" type="module"></script>
 </html>
