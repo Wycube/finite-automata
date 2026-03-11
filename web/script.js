@@ -1,20 +1,28 @@
-import init, { GraphRef } from "./pkg/automata.js";
+import init, {GraphRef} from "./pkg/automata.js";
+import {Renderer, CanvasBackend, SvgBackend} from "./renderer.js";
 
 
 init();
 let canvas = document.getElementById("canvas");
-const rect = canvas.getBoundingClientRect();
-const dpr = window.devicePixelRatio || 1;
-canvas.width = rect.width * dpr;
-canvas.height = rect.height * dpr;
-canvas.style.width = rect.width + "px";
-canvas.style.height = rect.height + "px";
-
-if(canvas.getContext) {
-    let context = canvas.getContext('2d');
-    context.scale(dpr, dpr);
-    context.font = "12px serif";
+if(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    canvas.style.width = rect.width + "px";
+    canvas.style.height = rect.height + "px";
+    
+    if(canvas.getContext) {
+        let context = canvas.getContext('2d');
+        context.scale(dpr, dpr);
+        context.font = "12px serif";
+    }
 }
+
+let svg = document.getElementById("svg");
+let renderer = new Renderer([new CanvasBackend(canvas), new SvgBackend(svg)]);
+
+let workarea = svg;
 
 let graph = {states: [], transitions: [], start: 0};
 let positions = [];
@@ -56,6 +64,36 @@ function printGraph() {
 }
 document.getElementById("print-button").onclick = printGraph;
 
+function testDFA() {
+    let copy = JSON.parse(JSON.stringify(graph));
+    for(let i = copy.transitions.length - 1; i >= 0; i--) {
+        if(copy.transitions[i].end < 0) {
+            copy.transitions.splice(i, 1);
+        }
+    }
+
+    let testText = document.getElementById("test-text");
+    let ref = new GraphRef(JSON.stringify(copy));
+    console.log("Result for " + testText.value + ": " + ref.decide_dfa(testText.value));
+    ref.free();
+}
+document.getElementById("test-dfa").onclick = testDFA;
+
+function testNFA() {
+    let copy = JSON.parse(JSON.stringify(graph));
+    for(let i = copy.transitions.length - 1; i >= 0; i--) {
+        if(copy.transitions[i].end < 0) {
+            copy.transitions.splice(i, 1);
+        }
+    }
+
+    let testText = document.getElementById("test-text");
+    let ref = new GraphRef(JSON.stringify(copy));
+    console.log("Result for " + testText.value + ": " + ref.decide_nfa(testText.value));
+    ref.free();
+}
+document.getElementById("test-nfa").onclick = testNFA;
+
 function distanceToLine(pos, a, b) {
     let c = pos;
     let ac = [a[0] - c[0], a[1] - c[1]];
@@ -69,15 +107,6 @@ function distanceToLine(pos, a, b) {
     let dist_sq = Math.pow(d[0] - c[0], 2) + Math.pow(d[1] - c[1], 2);
 
     return dist_sq;
-}
-
-function drawArrow(context, pos, dir) {
-    context.beginPath();
-    context.moveTo(pos[0], pos[1]);
-    context.lineTo(pos[0] - dir[0] * 7 + dir[1] * 5, pos[1] - dir[1] * 7 - dir[0] * 5);
-    context.lineTo(pos[0] - dir[0] * 7 - dir[1] * 5, pos[1] - dir[1] * 7 + dir[0] * 5);
-    context.lineTo(pos[0], pos[1]);
-    context.fill();
 }
 
 function calcArcRadius(a, b, c) {
@@ -94,25 +123,10 @@ function calcArcRadius(a, b, c) {
     //Check determinant
     let det = bc_normal[0] * ab_normal[1] - ab_normal[0] * bc_normal[1];
     if(det == 0) {
-        return 0;
+        return [0, [0, 0]];
     }
 
-    //a1t – a2s = b2 – b1
-    //c1t – c2s = d2 – d1
-
-    //t - a2/a1 s = (b2 - b1) / a1
-    //t - c2/c1 s = (d2 - d1) / c1
-
-    //t - a2/a1 s = (b2 - b1) / a1
-    //0 - (c2/c1 - a2/a1) s = (d2 - d1) / c1 - (b2 - b1) / a1
-
-    //t = (b2 - b1) / a1 + a2/a1 s
-    //s = [(b2 - b1) / a1 - (d2 - d1) / c1] / (c2/c1 - a2/a1)
-
-    //t = (b2 - b1) / a1 + a2/a1 * [(b2 - b1) / a1 - (d2 - d1) / c1] / (c2/c1 - a2/a1)
-
-    //s = (c1 t - d2 + d1) / c2
-
+    //Find intersection of lines normal to AB and BC, use that to determine radius
     let a1 = ab_normal[0];
     let b1 = ab_mid[0];
     let c1 = ab_normal[1];
@@ -142,36 +156,32 @@ function getIntersection(a, b, r1, r2) {
     return [[x1, y1], [x2, y2]];
 }
 
-function drawNode(context, pos, name, isAccept, isStart) {
-    context.beginPath();
-    context.arc(pos[0], pos[1], 20, 0, 2 * Math.PI);
-    context.stroke();
+function drawNode(renderer, pos, name, isAccept, isStart) {
+    renderer.drawCircle(pos, 20);
 
     if(isAccept) {
-        context.beginPath();
-        context.arc(pos[0], pos[1], 16, 0, 2 * Math.PI);
-        context.stroke();
+        renderer.drawCircle(pos, 16);
     }
     
+    let context = canvas.getContext("2d");
     let nameSize = context.measureText(name);
-    context.fillText(name, pos[0] - nameSize.width / 2, pos[1] + nameSize.fontBoundingBoxDescent);
+    renderer.fillText([pos[0] - nameSize.width / 2, pos[1] + nameSize.fontBoundingBoxDescent], name);
 
     //Draw start arrow
     if(isStart) {
-        context.beginPath();
-        context.moveTo(pos[0] - 40, pos[1]);
-        context.lineTo(pos[0] - 20, pos[1]);
-        context.stroke();
+        renderer.drawLine([pos[0] - 40, pos[1]], [pos[0] - 20, pos[1]]);
         let tip = [pos[0] - 20, pos[1]];
         let dir = [1, 0];
-        drawArrow(context, tip, dir);
+        renderer.drawArrow(tip, dir);
     }
 }
 
-function drawTextOffLine(context, text, pos, normal, padding) {
+function drawTextOffLine(renderer, text, pos, normal, padding) {
     //Find closest corner and move middle of AABB along normal from the center of the line so that the bounding box is
     //a little bit away from the line at all times while the middle is minimal distance from the middle of the line.
     //Not so great for large lines of text but great for small ones, which is what we're working with.
+    //TODO: Get text metrics without canvas
+    let context = canvas.getContext("2d");
     let box = context.measureText(text);
 
     //Get corner of the box in direction opposite of the normal
@@ -184,28 +194,26 @@ function drawTextOffLine(context, text, pos, normal, padding) {
     //Position middle so it is minimal distance away from the line while also keeping the closet corner a specific distance away
     let finalPos = [pos[0] + normal[0] * (projected + padding) - box.width / 2, pos[1] + normal[1] * (projected + padding) + height / 2];
 
-    context.fillText(text, finalPos[0], finalPos[1]);
+    renderer.fillText(finalPos, text);
 }
 
-function drawLink(context, start, end, curve, text, isCycle, isConnected) {
+function drawLink(renderer, start, end, curve, text, isCycle, isConnected) {
     if(isCycle) {
         let pos = start;
         let pos2 = [pos[0] + 30 * Math.cos(curve), pos[1] + 30 * Math.sin(curve)];
         let intersect = getIntersection(pos, pos2, 20, 15);
         let a1 = Math.atan2(intersect[0][1] - pos2[1], intersect[0][0] - pos2[0]);
         let a2 = Math.atan2(intersect[1][1] - pos2[1], intersect[1][0] - pos2[0]);
-        context.beginPath();
-        context.arc(pos2[0], pos2[1], 15, a1, a2);
-        context.stroke();
+        renderer.drawArc(pos2, 15, a1, a2);
 
         let end_edge = [pos[0] + 30 * Math.cos(curve) + Math.cos(a2) * 15, pos[1] + 30 * Math.sin(curve) + Math.sin(a2) * 15];
         let norm = Math.sqrt(Math.pow(end_edge[0] - pos[0], 2) + Math.pow(end_edge[1] - pos[1], 2));
         let diff = [-(end_edge[0] - pos[0]) / norm, -(end_edge[1] - pos[1]) / norm];
-        drawArrow(context, end_edge, diff);
+        renderer.drawArrow(end_edge, diff);
 
         let middle = [pos[0] + 45 * Math.cos(curve), pos[1] + 45 * Math.sin(curve)];
         let normal = [Math.cos(curve), Math.sin(curve)];
-        drawTextOffLine(context, text, middle, normal, 4);
+        drawTextOffLine(renderer, text, middle, normal, 4);
     } else {
         let norm = Math.sqrt(Math.pow(end[0] - start[0], 2) + Math.pow(end[1] - start[1], 2));
         let diff = [(end[0] - start[0]) / norm, (end[1] - start[1]) / norm];
@@ -222,7 +230,7 @@ function drawLink(context, start, end, curve, text, isCycle, isConnected) {
 
         if(curveDist != 0) {
             let r = calcArcRadius(start, [middle[0] + normal[0] * curveDist, middle[1] + normal[1] * curveDist], end);
-            let center = r[1]; //[middle[0] + normal[0] * (curveDist - r), middle[1] + normal[1] * (curveDist - r)];
+            let center = r[1];
             let a1 = Math.atan2(start[1] - center[1], start[0] - center[0]);
             let a2 = Math.atan2(end[1] - center[1], end[0] - center[0]);
             let extra = 20 / r[0];
@@ -231,74 +239,69 @@ function drawLink(context, start, end, curve, text, isCycle, isConnected) {
                 extra *= -1;
             }
 
-            context.beginPath();
-            context.arc(center[0], center[1], r[0], a1 + extra, a2 - extra, curve < 0);
-            context.stroke();
+            if(curve < 0) {
+                renderer.drawArc(center, r[0], a2 - extra, a1 + extra)
+            } else {
+                renderer.drawArc(center, r[0], a1 + extra, a2 - extra)
+            }
 
-            context.strokeStyle = "green";
-            context.beginPath();
-            context.moveTo(start[0], start[1]);
-            context.lineTo(middle[0] + normal[0] * curveDist, middle[1] + normal[1] * curveDist)
-            context.lineTo(end[0], end[1]);
-            context.stroke();
-            context.beginPath();
-            context.arc(center[0], center[1], 5, 0, 2 * Math.PI);
-            context.fill();
-            context.strokeStyle = "black";
+            // context.strokeStyle = "green";
+            // context.beginPath();
+            // context.moveTo(start[0], start[1]);
+            // context.lineTo(middle[0] + normal[0] * curveDist, middle[1] + normal[1] * curveDist)
+            // context.lineTo(end[0], end[1]);
+            // context.stroke();
+            // context.beginPath();
+            // context.arc(center[0], center[1], 5, 0, 2 * Math.PI);
+            // context.fill();
+            // context.strokeStyle = "black";
 
             let new_end_edge = [center[0] + Math.cos(a2 - extra) * r[0], center[1] + Math.sin(a2 - extra) * r[0]];
             let new_diff_norm = Math.sqrt(Math.pow(end[0] - new_end_edge[0], 2) + Math.pow(end[1] - new_end_edge[1], 2));
             let new_diff = [(end[0] - new_end_edge[0]) / new_diff_norm, (end[1] - new_end_edge[1]) / new_diff_norm];
-            drawArrow(context, new_end_edge, new_diff);
+            renderer.drawArrow(new_end_edge, new_diff);
         } else {
-            context.beginPath();
-            context.moveTo(start_edge[0], start_edge[1]);
-            context.lineTo(end_edge[0], end_edge[1]);
-            context.stroke();
-            drawArrow(context, end_edge, diff);
+            renderer.drawLine(start_edge, end_edge);
+            renderer.drawArrow(end_edge, diff);
         }
 
-        drawTextOffLine(context, text, middle, normal, 4 + curveDist)
+        drawTextOffLine(renderer, text, middle, normal, 4 + curveDist)
     }
 }
 
-function drawGraph(context) {
-    context.fillStyle = "white";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = "black";
+function drawGraph(renderer) {
+    renderer.setColor("white");
+    renderer.clear();
+    renderer.setColor("black");
 
     //Draw nodes
     for(let i in positions) {
         if(selected.type == 0 && selected.index == i) {
-            context.fillStyle = "blue";
-            context.strokeStyle = "blue";
+            renderer.setColor("blue");
         }
         
         let pos = positions[i];
         let node = graph.states[i];
-        drawNode(context, pos, node.name, node.accept, graph.start == i);
-        
+        drawNode(renderer, pos, node.name, node.accept, graph.start == i);
+
         if(selected.type == 0 && selected.index == i) {
-            context.fillStyle = "black";
-            context.strokeStyle = "black";
+            renderer.setColor("black");
         }
     }
 
     //Draw connections
     for(let i in links) {
         if(selected.type == 1 && selected.index == i) {
-            context.fillStyle = "blue";
-            context.strokeStyle = "blue";
+            renderer.setColor("blue");
         }
 
         let link_pos = getLinkPositions(i);
         let transition = graph.transitions[links[i].index];
         let text = getLinkText(i);
-        drawLink(context, link_pos[0], link_pos[1], links[i].curve, text, transition.start == transition.end, transition.end >= 0);
+        drawLink(renderer, link_pos[0], link_pos[1], links[i].curve, text, transition.start == transition.end, transition.end >= 0);
 
         if(selected.type == 1 && selected.index == i) {
-            context.fillStyle = "black";
-            context.strokeStyle = "black";
+            renderer.setColor("black");
         }
     }
 }
@@ -331,8 +334,7 @@ function onNodeNameChanged() {
 
     let nodeName = document.getElementById("node-name");
     graph.states[selected.index].name = nodeName.value;
-    let context = canvas.getContext("2d");
-    drawGraph(context);
+    drawGraph(renderer);
 }
 document.getElementById("node-name").oninput = onNodeNameChanged;
 
@@ -343,8 +345,7 @@ function onNodeAcceptChanged() {
 
     let nodeAccept = document.getElementById("node-accept");
     graph.states[selected.index].accept = nodeAccept.checked;
-    let context = canvas.getContext("2d");
-    drawGraph(context);
+    drawGraph(renderer);
 }
 document.getElementById("node-accept").oninput = onNodeAcceptChanged;
 
@@ -354,8 +355,7 @@ function onNodeStartClicked() {
     }
 
     graph.start = selected.index;
-    let context = canvas.getContext("2d");
-    drawGraph(context);
+    drawGraph(renderer);
 }
 document.getElementById("node-start").onclick = onNodeStartClicked;
 
@@ -380,8 +380,7 @@ function onLinkTextChanged() {
         validSymbols.push(c);
     }
     graph.transitions[selected.index].symbols = validSymbols;
-    let context = canvas.getContext("2d");
-    drawGraph(context);
+    drawGraph(renderer);
 }
 document.getElementById("link-text").oninput = onLinkTextChanged;
 
@@ -392,12 +391,11 @@ function onLinkEpsilonChanged() {
 
     let epsilon = document.getElementById("link-epsilon");
     graph.transitions[selected.index].epsilon = epsilon.checked;
-    let context = canvas.getContext("2d");
-    drawGraph(context);
+    drawGraph(renderer);
 }
 document.getElementById("link-epsilon").oninput = onLinkEpsilonChanged;
 
-canvas.addEventListener("dblclick", function(event) {
+workarea.addEventListener("dblclick", function(event) {
     if(selected.type != -1) {
         return;
     }
@@ -407,14 +405,13 @@ canvas.addEventListener("dblclick", function(event) {
     selected.index = positions.length - 1;
     selected.held = false;
     graph.states.push({name: "name", accept: false});
-    let context = canvas.getContext("2d");
-    drawGraph(context);
+    drawGraph(renderer);
     updateProperties();
 })
 
 let curveHeld = false;
 
-canvas.addEventListener("mousedown", function(event) {
+workarea.addEventListener("mousedown", function(event) {
     selected.type = -1;
     selected.index = -1;
     selected.held = false;
@@ -458,7 +455,7 @@ canvas.addEventListener("mousedown", function(event) {
                     let diff = [(b[0] - a[0]) / norm, (b[1] - a[1]) / norm];
                     let normal = [diff[1], -diff[0]];
                     let r = calcArcRadius(a, [middle[0] + normal[0] * links[i].curve, middle[1] + normal[1] * links[i].curve], b);
-                    let center = r[1]; //[middle[0] + normal[0] * (link[2] - r), middle[1] + normal[1] * (link[2] - r)];
+                    let center = r[1];
                     let a1 = Math.atan2(a[1] - center[1], a[0] - center[0]);
                     let a2 = Math.atan2(b[1] - center[1], b[0] - center[0]);
                     let angle = Math.atan2(event.offsetY - center[1], event.offsetX - center[0]);
@@ -470,7 +467,6 @@ canvas.addEventListener("mousedown", function(event) {
                     }
 
                     //Only get distance if the angle is within the arc
-                    //TODO: Handle arcs with negative radius
                     let a1_n = a1 + Math.PI;
                     let a2_n = a2 + Math.PI;
                     let angle_n = angle + Math.PI;
@@ -492,7 +488,6 @@ canvas.addEventListener("mousedown", function(event) {
     }
 
     if(event.shiftKey && selected.type == 0) {
-        // links.push([selected.index, selected.index, 0]);
         graph.transitions.push({start: selected.index, end: selected.index, symbols: ["0"], epsilon: false});
         links.push({index: graph.transitions.length - 1, end: [event.offsetX, event.offsetY], curve: 0});
         selected.type = 1;
@@ -500,22 +495,21 @@ canvas.addEventListener("mousedown", function(event) {
         selected.held = true;
     }
 
-    let context = canvas.getContext("2d");
-    drawGraph(context);
+    drawGraph(renderer);
     updateProperties();
 })
 
-canvas.addEventListener("mouseup", function(event) {
+workarea.addEventListener("mouseup", function(event) {
     selected.held = false;
     curveHeld = false;
 })
 
-canvas.addEventListener("mouseleave", function(event) {
+workarea.addEventListener("mouseleave", function(event) {
     selected.held = false;
     curveHeld = false;
 })
 
-canvas.addEventListener("mousemove", function(event) {
+workarea.addEventListener("mousemove", function(event) {
     if(selected.type == 0 && selected.held) {
         positions[selected.index] = [Math.floor(event.offsetX / 5) * 5, Math.floor(event.offsetY / 5) * 5];
     }
@@ -561,6 +555,8 @@ canvas.addEventListener("mousemove", function(event) {
         }
     }
 
-    let context = canvas.getContext("2d");
-    drawGraph(context);
+    //Only redraw if something could have moved
+    if(selected.held) {
+        drawGraph(renderer);
+    }
 })

@@ -9,11 +9,10 @@ body {
     background-color: gray;
 }
 
-canvas {
+canvas, svg {
     width: 800px;
     height: 500px;
     background-color: white;
-
 }
 
 .grid {
