@@ -22,12 +22,56 @@ if(canvas) {
 let svg = document.getElementById("svg");
 let renderer = new Renderer([new CanvasBackend(canvas), new SvgBackend(svg)]);
 
-let workarea = svg;
+svg.style.display = "none";
+let workarea = canvas;
 
 let graph = {states: [], transitions: [], start: 0};
 let positions = [];
 let links = [];
 let selected = {type: -1, index: -1, held: false};
+
+if(localStorage.getItem("graph") != null && localStorage.getItem("positions") != null && localStorage.getItem("links") != null) {
+    graph = JSON.parse(localStorage.getItem("graph"));
+    positions = JSON.parse(localStorage.getItem("positions"));
+    links = JSON.parse(localStorage.getItem("links"));
+    drawGraph(renderer);
+}
+
+function saveGraph() {
+    localStorage.setItem("graph", JSON.stringify(graph));
+    localStorage.setItem("positions", JSON.stringify(positions));
+    localStorage.setItem("links", JSON.stringify(links));
+}
+
+function onBackendSwitch() {
+    renderer.selectedBackend = renderer.selectedBackend == 0 ? 1 : 0;
+    if(renderer.selectedBackend == 0) {
+        canvas.style.display = "";
+        svg.style.display = "none";
+        document.getElementById("renderer-text").innerText = "Canvas Renderer";
+    } else {
+        canvas.style.display = "none";
+        svg.style.display = "";
+        document.getElementById("renderer-text").innerText = "SVG Renderer";
+    }
+
+    drawGraph(renderer);
+}
+document.getElementById("backend-button").onclick = onBackendSwitch;
+
+function onClear() {
+    graph = {states: [], transitions: [], start: 0};
+    positions = [];
+    links = [];
+    selected = {type: -1, index: -1, held: false};
+
+    localStorage.removeItem("graph");
+    localStorage.removeItem("positions");
+    localStorage.removeItem("links");
+
+    drawGraph(renderer);
+}
+document.getElementById("clear-button").onclick = onClear;
 
 function getLinkPositions(index) {
     let start = positions[graph.transitions[links[index].index].start];
@@ -157,12 +201,16 @@ function getIntersection(a, b, r1, r2) {
 }
 
 function drawNode(renderer, pos, name, isAccept, isStart) {
+    let lastColor = renderer.getColor();
+    renderer.setColor("white");
+    renderer.fillCircle(pos, 20);
+    renderer.setColor(lastColor);
     renderer.drawCircle(pos, 20);
 
     if(isAccept) {
         renderer.drawCircle(pos, 16);
     }
-    
+
     let context = canvas.getContext("2d");
     let nameSize = context.measureText(name);
     renderer.fillText([pos[0] - nameSize.width / 2, pos[1] + nameSize.fontBoundingBoxDescent], name);
@@ -197,7 +245,7 @@ function drawTextOffLine(renderer, text, pos, normal, padding) {
     renderer.fillText(finalPos, text);
 }
 
-function drawLink(renderer, start, end, curve, text, isCycle, isConnected) {
+function drawLink(renderer, start, end, curve, text, isCycle, isConnected, flip) {
     if(isCycle) {
         let pos = start;
         let pos2 = [pos[0] + 30 * Math.cos(curve), pos[1] + 30 * Math.sin(curve)];
@@ -263,6 +311,10 @@ function drawLink(renderer, start, end, curve, text, isCycle, isConnected) {
         } else {
             renderer.drawLine(start_edge, end_edge);
             renderer.drawArrow(end_edge, diff);
+
+            if(flip) {
+                normal = [-normal[0], -normal[1]];
+            }
         }
 
         drawTextOffLine(renderer, text, middle, normal, 4 + curveDist)
@@ -273,6 +325,22 @@ function drawGraph(renderer) {
     renderer.setColor("white");
     renderer.clear();
     renderer.setColor("black");
+
+    //Draw connections
+    for(let i in links) {
+        if(selected.type == 1 && selected.index == i) {
+            renderer.setColor("blue");
+        }
+
+        let link_pos = getLinkPositions(i);
+        let transition = graph.transitions[links[i].index];
+        let text = getLinkText(i);
+        drawLink(renderer, link_pos[0], link_pos[1], links[i].curve, text, transition.start == transition.end, transition.end >= 0, links[i].flip);
+
+        if(selected.type == 1 && selected.index == i) {
+            renderer.setColor("black");
+        }
+    }
 
     //Draw nodes
     for(let i in positions) {
@@ -285,22 +353,6 @@ function drawGraph(renderer) {
         drawNode(renderer, pos, node.name, node.accept, graph.start == i);
 
         if(selected.type == 0 && selected.index == i) {
-            renderer.setColor("black");
-        }
-    }
-
-    //Draw connections
-    for(let i in links) {
-        if(selected.type == 1 && selected.index == i) {
-            renderer.setColor("blue");
-        }
-
-        let link_pos = getLinkPositions(i);
-        let transition = graph.transitions[links[i].index];
-        let text = getLinkText(i);
-        drawLink(renderer, link_pos[0], link_pos[1], links[i].curve, text, transition.start == transition.end, transition.end >= 0);
-
-        if(selected.type == 1 && selected.index == i) {
             renderer.setColor("black");
         }
     }
@@ -322,6 +374,7 @@ function updateProperties() {
         linkPanel.hidden = false;
         let linkText = document.getElementById("link-text");
         linkText.value = getLinkTextNoEpsilon(selected.index).replaceAll(" ", "");
+        document.getElementById("symbols-error").hidden = true;
         let linkEpsilon = document.getElementById("link-epsilon");
         linkEpsilon.checked = graph.transitions[selected.index].epsilon;
     }
@@ -364,20 +417,25 @@ function onLinkTextChanged() {
         return;
     }
 
+    document.getElementById("symbols-error").hidden = true;
     let linkText = document.getElementById("link-text");
     let text = linkText.value;
     let symbols = text.split(",");
     let validSymbols = [];
-    for(let c of symbols) {
-        if(c.length != 1) {
-            return;
+    if(text != "") {
+        for(let c of symbols) {
+            if(c.length != 1) {
+                document.getElementById("symbols-error").hidden = false;
+                return;
+            }
+            
+            if(validSymbols.indexOf(c) != -1) {
+                document.getElementById("symbols-error").hidden = false;
+                return;
+            }
+    
+            validSymbols.push(c);
         }
-
-        if(validSymbols.indexOf(c) != -1) {
-            continue;
-        }
-
-        validSymbols.push(c);
     }
     graph.transitions[selected.index].symbols = validSymbols;
     drawGraph(renderer);
@@ -395,6 +453,57 @@ function onLinkEpsilonChanged() {
 }
 document.getElementById("link-epsilon").oninput = onLinkEpsilonChanged;
 
+workarea.addEventListener("keydown", function(event) {
+    if(selected.type == -1) {
+        return;
+    }
+    
+    if(event.key == "Delete" || event.key == "Backspace") {
+        if(selected.type == 0) {
+            //Delete node
+            graph.states.splice(selected.index, 1);
+            positions.splice(selected.index, 1);
+            
+            //Update links
+            for(let i = links.length - 1; i >= 0; i--) {
+                let transition = graph.transitions[links[i].index];
+                if(transition.start == selected.index || transition.end == selected.index) {
+                    let index = links[i].index;
+                    graph.transitions.splice(index, 1);
+                    links.splice(i, 1);
+
+                    for(let link of links) {
+                        if(link.index > index) {
+                            link.index -= 1;
+                        }
+                    }
+                }
+
+                if(transition.start > selected.index) {
+                    transition.start -= 1;
+                }
+                if(transition.end > selected.index) {
+                    transition.end -= 1;
+                }
+            }
+        } else {
+            //Delete link
+            let index = links[selected.index].index;
+            graph.transitions.splice(index, 1);
+            links.splice(selected.index, 1);
+
+            for(let link of links) {
+                if(link.index > index) {
+                    link.index -= 1;
+                }
+            }
+        }
+
+        drawGraph(renderer);
+        saveGraph();
+    }
+});
+
 workarea.addEventListener("dblclick", function(event) {
     if(selected.type != -1) {
         return;
@@ -406,8 +515,9 @@ workarea.addEventListener("dblclick", function(event) {
     selected.held = false;
     graph.states.push({name: "name", accept: false});
     drawGraph(renderer);
+    saveGraph();
     updateProperties();
-})
+});
 
 let curveHeld = false;
 
@@ -489,25 +599,34 @@ workarea.addEventListener("mousedown", function(event) {
 
     if(event.shiftKey && selected.type == 0) {
         graph.transitions.push({start: selected.index, end: selected.index, symbols: ["0"], epsilon: false});
-        links.push({index: graph.transitions.length - 1, end: [event.offsetX, event.offsetY], curve: 0});
+        links.push({index: graph.transitions.length - 1, end: [event.offsetX, event.offsetY], curve: 0, flip: false});
         selected.type = 1;
         selected.index = links.length - 1;
         selected.held = true;
+        saveGraph();
     }
 
     drawGraph(renderer);
     updateProperties();
-})
+});
 
 workarea.addEventListener("mouseup", function(event) {
+    if(selected.held) {
+        saveGraph();
+    }
+
     selected.held = false;
     curveHeld = false;
-})
+});
 
 workarea.addEventListener("mouseleave", function(event) {
+    if(selected.held) {
+        saveGraph();
+    }
+
     selected.held = false;
     curveHeld = false;
-})
+});
 
 workarea.addEventListener("mousemove", function(event) {
     if(selected.type == 0 && selected.held) {
@@ -532,7 +651,8 @@ workarea.addEventListener("mousemove", function(event) {
             let new_diff = r[0] + Math.sign(cm_dot) * Math.sign(dot) * Math.sqrt(Math.pow(center[0] - middle[0], 2) + Math.pow(center[1] - middle[1], 2));
             diff = new_diff;
 
-            if(Math.abs(diff) < 10) {
+            if(diff < 10) {
+                links[selected.index].flip = dot < 0;
                 diff = 0;
             }
 
@@ -559,4 +679,4 @@ workarea.addEventListener("mousemove", function(event) {
     if(selected.held) {
         drawGraph(renderer);
     }
-})
+});

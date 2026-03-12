@@ -6,45 +6,39 @@ class Renderer {
     }
 
     setColor(color) {
-        // this.backends[this.selectedBackend].setColor(color);
-        this.backends[0].setColor(color);
-        this.backends[1].setColor(color);
+        this.backends[this.selectedBackend].setColor(color);
+    }
+
+    getColor() {
+        return this.backends[this.selectedBackend].getColor();
     }
     
     clear() {
-        // this.backends[this.selectedBackend].clear();
-        this.backends[0].clear();
-        this.backends[1].clear();
+        this.backends[this.selectedBackend].clear();
     }
 
     drawLine(start, end) {
-        // this.backends[this.selectedBackend].drawLine(start, end);
-        this.backends[0].drawLine(start, end);
-        this.backends[1].drawLine(start, end);
+        this.backends[this.selectedBackend].drawLine(start, end);
     }
 
     drawArrow(pos, dir) {
-        // this.backends[this.selectedBackend].drawArrow(pos, dir);
-        this.backends[0].drawArrow(pos, dir);
-        this.backends[1].drawArrow(pos, dir);
+        this.backends[this.selectedBackend].drawArrow(pos, dir);
     }
 
     drawCircle(center, radius) {
-        // this.backends[this.selectedBackend].drawCircle(center, radius);
-        this.backends[0].drawCircle(center, radius);
-        this.backends[1].drawCircle(center, radius);
+        this.backends[this.selectedBackend].drawCircle(center, radius);
+    }
+
+    fillCircle(center, radius) {
+        this.backends[this.selectedBackend].fillCircle(center, radius);
     }
 
     drawArc(center, radius, a1, a2) {
-        // this.backends[this.selectedBackend].drawArc(center, radius, a1, a2);
-        this.backends[0].drawArc(center, radius, a1, a2);
-        this.backends[1].drawArc(center, radius, a1, a2);
+        this.backends[this.selectedBackend].drawArc(center, radius, a1, a2);
     }
 
     fillText(pos, text) {
-        // this.backends[this.selectedBackend].fillText(pos, text);
-        this.backends[0].fillText(pos, text);
-        this.backends[1].fillText(pos, text);
+        this.backends[this.selectedBackend].fillText(pos, text);
     }
 }
 
@@ -59,8 +53,12 @@ class CanvasBackend {
         this.context.fillStyle = color;
     }
 
+    getColor() {
+        return this.context.fillStyle;
+    }
+
     clear() {
-        this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     drawLine(start, end) {
@@ -84,6 +82,12 @@ class CanvasBackend {
         this.context.arc(center[0], center[1], radius, 0, 2 * Math.PI);
         this.context.stroke();
     }
+    
+    fillCircle(center, radius) {
+        this.context.beginPath();
+        this.context.arc(center[0], center[1], radius, 0, 2 * Math.PI);
+        this.context.fill();
+    }
 
     drawArc(center, radius, a1, a2) {
         this.context.beginPath();
@@ -104,6 +108,10 @@ class SvgBackend {
 
     setColor(color) {
         this.color = color;
+    }
+
+    getColor() {
+        return this.color;
     }
 
     clear() {
@@ -134,6 +142,15 @@ class SvgBackend {
         circle.setAttribute("cx", center[0]);
         circle.setAttribute("cy", center[1]);
         circle.setAttribute("style", "fill:transparent;stroke:" + this.color + ";stroke-width:1px");
+        this.svg.appendChild(circle);
+    }
+    
+    fillCircle(center, radius) {
+        let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("r", radius);
+        circle.setAttribute("cx", center[0]);
+        circle.setAttribute("cy", center[1]);
+        circle.setAttribute("style", "fill:" + this.color);
         this.svg.appendChild(circle);
     }
 

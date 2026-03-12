@@ -9,19 +9,21 @@
             <h2>Editor</h2>
             <h2>Properties</h2>
             <div>
-                <canvas id="canvas"></canvas>
-                <svg id='svg' xmlns="http://www.w3.org/2000/svg">
-
-                </svg>
+                <input type="button" id="backend-button" value="Switch Renderer">
+                <input type="button" id="clear-button" value="Clear">
+                <p id="renderer-text">Canvas Renderer</p>
+                <canvas id="canvas" tabindex="1"></canvas>
+                <svg id='svg' xmlns="http://www.w3.org/2000/svg"></svg>
             </div>
             <div>
-                <div id="node" hidden="true">
+                <div id="node" hidden>
                     Name: <input type="text" id="node-name"><br>
                     Accept: <input type="checkbox" id="node-accept"><br>
                     <input type="button" id="node-start" value="Set as Start">
                 </div>
-                <div id="link" hidden="true">
+                <div id="link" hidden>
                     Text: <input type="text" id="link-text">
+                    <p id="symbols-error" class="error" hidden>Symbol list is invalid! There must be no duplicates and only single characters.</p>
                     Epsilon: <input type="checkbox" id="link-epsilon"><br>
                 </div>
             </div>

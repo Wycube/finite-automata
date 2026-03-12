@@ -27,12 +27,6 @@ impl GraphRef {
 
     pub fn alphabet(&self) -> Vec<JsValue> {
         let alphabet = self.graph.alphabet();
-        // let mut js_array = Vec::<JsValue>::new();
-        // for c in alphabet {
-        //     js_array.push(c.into());
-        // }
-
-        // js_array
         alphabet.into_iter().map(|c| JsValue::from(String::from(c))).collect()
     }
 
