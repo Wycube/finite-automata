@@ -23,8 +23,10 @@ jobs:
       working-directory: ./automata
     - name: Copy to web folder
       run: cp -R automata/pkg web/pkg
-    - name: Upload a Build Artifact
+    - name: Upload Artifact
       uses: actions/upload-pages-artifact@v4.0.0
       with:
         name: pages
         path: web
+    - name: Deploy Github pages
+      uses: actions/deploy-pages@v4
