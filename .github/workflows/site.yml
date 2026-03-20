@@ -24,7 +24,7 @@ jobs:
     - name: Copy to web folder
       run: cp -R automata/pkg web/pkg
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v7.0.0
+      uses: actions/upload-pages-artifact@v4.0.0
       with:
-        name: pages-test
+        name: pages
         path: web
